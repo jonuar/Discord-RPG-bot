@@ -1,11 +1,11 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
-import os
+from config import Config
 
 class Database:
-    def __init__(self, uri: str, db_name: str):
-        self.client = AsyncIOMotorClient(uri)
-        self.db = self.client[db_name]
+    def __init__(self):
+        self.client = AsyncIOMotorClient(Config.MONGO_URI)
+        self.db = self.client[Config.DB_NAME]
 
     async def close(self):
         self.client.close()
@@ -35,6 +35,4 @@ class Database:
         return result.deleted_count
 
 def get_database():
-    mongo_uri = os.getenv("MONGO_URI")
-    db_name = os.getenv("DB_NAME")
-    return Database(mongo_uri, db_name)
+    return Database()
