@@ -2,12 +2,13 @@ import os
 import discord
 from discord.ext import commands
 from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
+from db import get_database
+from config import Config
 
-load_dotenv()
+# load_dotenv()
 
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-MONGODB_URI = os.getenv("MONGODB_URI")
+DISCORD_TOKEN = Config.DISCORD_TOKEN
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -22,9 +23,10 @@ CLASSES = [
 ]
 
 # Conexión a MongoDB
-mongo_client = AsyncIOMotorClient(MONGODB_URI)
-db = mongo_client["rpgbot"]
-users_collection = db["users"]
+mongo_client = AsyncIOMotorClient(Config.MONGO_URI)
+db = mongo_client[Config.DB_NAME]
+users_collection = db[Config.COLLECTION_NAME]
+database = get_database()
 
 @bot.command(name="info")
 async def mostrar_ayuda(ctx):
@@ -55,7 +57,6 @@ async def elegir(ctx, opcion: str):
         await ctx.send("Formato inválido. Ejemplo: `1C` para Humano y Druida.")
         return
 
-    # Parse raza (número) y clase (letra)
     raza_idx = opcion[0]
     clase_letra = opcion[1].upper()
 
@@ -75,11 +76,11 @@ async def elegir(ctx, opcion: str):
     clase = CLASSES[clase_idx]
     raza = RACES[raza_idx]
 
-    await users_collection.update_one(
-        {"user_id": ctx.author.id},
-        {"$set": {"raza": raza, "clase": clase}},
-        upsert=True
-    )
+    user = await database.read_user(ctx.author.id)
+    if not user:
+        await database.create_user(ctx.author.id, race=raza, user_class=clase)
+    else:
+        await database.update_user(ctx.author.id, {"race": raza, "class": clase})
     await ctx.send(f"Has elegido:\nRaza: **{raza}**\nClase: **{clase}**.")
 
 @bot.command(name="elegir_raza")
@@ -88,11 +89,11 @@ async def elegir_raza(ctx, *, raza):
     if raza not in RACES:
         await ctx.send("Raza no válida. Usa `!razas` para ver las opciones.")
         return
-    await users_collection.update_one(
-        {"user_id": ctx.author.id},
-        {"$set": {"raza": raza}},
-        upsert=True
-    )
+    user = await database.read_user(ctx.author.id)
+    if not user:
+        await database.create_user(ctx.author.id, race=raza)
+    else:
+        await database.update_user(ctx.author.id, {"race": raza})
     await ctx.send(f"Has elegido la raza: **{raza}**.")
 
 @bot.command(name="elegir_clase")
@@ -101,21 +102,29 @@ async def elegir_clase(ctx, *, clase):
     if clase not in CLASSES:
         await ctx.send("Clase no válida. Usa `!clases` para ver las opciones.")
         return
-    await users_collection.update_one(
-        {"user_id": ctx.author.id},
-        {"$set": {"clase": clase}},
-        upsert=True
-    )
+    user = await database.read_user(ctx.author.id)
+    if not user:
+        await database.create_user(ctx.author.id, user_class=clase)
+    else:
+        await database.update_user(ctx.author.id, {"class": clase})
     await ctx.send(f"Has elegido la clase: **{clase}**.")
 
 @bot.command(name="perfil")
 async def mostrar_perfil(ctx):
-    user = await users_collection.find_one({"user_id": ctx.author.id})
+    user = await database.read_user(ctx.author.id)
     if not user:
         await ctx.send("No tienes perfil aún. Usa `!elegir_raza` y `!elegir_clase` para crear uno.")
         return
-    raza = user.get("raza", "No elegida")
-    clase = user.get("clase", "No elegida")
-    await ctx.send(f"Perfil de {ctx.author.mention}:\nRaza: **{raza}**\nClase: **{clase}**")
+    raza = user.get("race", "No elegida")
+    clase = user.get("class", "No elegida")
+    coins = user.get("coins", 0)
+    inventory = user.get("inventory", [])
+    await ctx.send(
+        f"Perfil de {ctx.author.mention}:\n"
+        f"Raza: **{raza}**\n"
+        f"Clase: **{clase}**\n"
+        f"Monedas: **{coins}**\n"
+        f"Inventario: {', '.join(inventory) if inventory else 'Vacío'}"
+    )
 
 bot.run(DISCORD_TOKEN)
