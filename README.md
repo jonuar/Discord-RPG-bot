@@ -1,51 +1,79 @@
-# Discord FastAPI Bot
+# RPGbot
 
-This project is a minimal boilerplate for a Discord bot built using `discord.py` and `FastAPI`, with MongoDB for data persistence.
+Un bot de Discord para juegos de rol, construido con FastAPI, discord.py y MongoDB.
 
-## Project Structure
+## Requisitos
 
-```
-discord-fastapi-bot
-├── src
-│   ├── bot.py          # Entry point for the Discord bot
-│   ├── api.py          # FastAPI application setup
-│   ├── db.py           # MongoDB connection and CRUD operations
-│   └── config.py       # Configuration settings
-├── requirements.txt     # Project dependencies
-└── README.md            # Project documentation
-```
+- Python 3.10+
+- MongoDB Atlas o MongoDB local
+- Un bot de Discord registrado
 
-## Setup Instructions
+## Instalación
 
-1. **Clone the repository:**
+1. Clona este repositorio.
+2. Crea un entorno virtual:
    ```
-   git clone <repository-url>
-   cd discord-fastapi-bot
+   python -m venv venv
    ```
-
-2. **Install dependencies:**
+3. Activa el entorno virtual:
+   - En Windows:
+     ```
+     venv\Scripts\activate
+     ```
+   - En Linux/Mac:
+     ```
+     source venv/bin/activate
+     ```
+4. Instala las dependencias:
    ```
    pip install -r requirements.txt
    ```
+5. Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
+   ```
+   DISCORD_TOKEN=tu_token_de_discord
+   MONGO_URI=tu_cadena_de_conexion_mongodb
+   DB_NAME=RPGbot-db
+   COLLECTION_NAME=players
+   ```
 
-3. **Configure your environment:**
-   - Create a `.env` file or set environment variables for your Discord bot token and MongoDB connection string.
-   - Example:
-     ```
-     DISCORD_TOKEN=your_discord_bot_token
-     MONGODB_URI=your_mongodb_connection_string
-     ```
+## Uso
 
-4. **Run the bot:**
+1. Ejecuta el bot:
    ```
    python src/bot.py
    ```
 
-## Usage
+2. Invita el bot a tu servidor de Discord.
 
-- The bot will connect to Discord and listen for events.
-- You can define API endpoints in `api.py` to interact with the bot and perform actions based on incoming requests.
+3. Usa los siguientes comandos en Discord:
 
-## Contributing
+   - `!razas`  
+     Muestra la lista de razas disponibles.
 
-Feel free to submit issues or pull requests for improvements or additional features.
+   - `!clases`  
+     Muestra la lista de clases disponibles.
+
+   - `!elegir <número><letra>`  
+     Elige tu raza y clase. Ejemplo: `!elegir 1A`
+
+   - `!perfil`  
+     Muestra tu perfil actual.
+
+   - `!cambiar_raza <raza>`  
+     Cambia tu raza después de crear tu perfil. Cuesta 200 monedas.
+
+   - `!cambiar_clase <clase>`  
+     Cambia tu clase después de crear tu perfil. Cuesta 200 monedas.
+
+   - `!info`  
+     Muestra la ayuda con todos los comandos.
+
+## Notas
+
+- Asegúrate de que tu bot tenga habilitado el intent de contenido de mensajes en el portal de desarrolladores de Discord.
+- El bot almacena los perfiles de los usuarios en la colección y base de datos configuradas en el archivo `.env`.
+- Puedes usar MongoDB Atlas o una instancia local de MongoDB para la persistencia.
+
+## Licencia
+
+MIT
