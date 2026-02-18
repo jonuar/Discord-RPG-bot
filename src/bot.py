@@ -30,6 +30,8 @@ async def mostrar_ayuda(ctx):
         "`!clases` - Muestra la lista de clases disponibles.\n"
         "`!elegir <número><letra>` - Elige raza y clase. Ejemplo: `!elegir 1A`\n"
         "`!perfil` - Muestra tu perfil actual.\n"
+        "`!cambiar_raza <raza>` - Cambia tu raza después de crear tu perfil. Cuesta 200 monedas.\n"
+        "`!cambiar_clase <clase>` - Cambia tu clase después de crear tu perfil. Cuesta 200 monedas.\n"
         "`!info` - Muestra este mensaje de ayuda."
     )
     await ctx.send(help_text)
