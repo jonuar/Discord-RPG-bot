@@ -3,6 +3,29 @@ import discord
 from discord.ext import commands
 from db import get_database
 from config import Config
+import random
+
+
+'''
+TODO
+-Si el personaje llega 0 monedas muere y debe crear su personaje de nuevo
+
+-Duelo entre personajes tiran un dado y el valor random indicará si viven o mueren,
+el que es derrota pierde 100 monedas
+
+-Si la persona con la que se le hace duelo no ha credo su personaje, es mencionado
+para que lo haga con instrucciones
+
+-Cambiar diálogos a más fantasía con tintes de humor negro
+
+- Hacer tests
+
+-Desplegar bot en render o AWS
+
+-Implementar compras de inventario.
+
+'''
+
 
 
 DISCORD_TOKEN = Config.DISCORD_TOKEN
@@ -123,7 +146,7 @@ async def mostrar_perfil(ctx):
     raza = user.get("race", "No elegida")
     clase = user.get("class", "No elegida")
     coins = user.get("coins", 0)
-    inventory = user.get("inventory", [])
+    # inventory = user.get("inventory", [])
     await ctx.send(
         f"Perfil de {ctx.author.mention}:\n"
         f"Raza: **{raza}**\n"
@@ -131,5 +154,43 @@ async def mostrar_perfil(ctx):
         f"Monedas: **§{coins}**\n"
         f"Inventario: {', '.join(inventory) if inventory else 'Vacío'}"
     )
+
+@bot.command(name="duelo")
+async def duelo(ctx, oponente: discord.Member):
+    if oponente.id == ctx.author.id:
+        await ctx.send("No puedes retarte a ti mismo.")
+        return
+
+    jugador = await database.read_user(ctx.author.id)
+    rival = await database.read_user(oponente.id)
+
+    if not jugador or not rival:
+        await ctx.send("Ambos jugadores deben tener perfil creado con `!elegir`.")
+        return
+
+    if jugador.get("coins", 0) < 100 or rival.get("coins", 0) < 100:
+        await ctx.send("Ambos jugadores deben tener al menos 100 monedas para participar en un duelo.")
+        return
+
+    dado_jugador = random.randint(1, 20)
+    dado_rival = random.randint(1, 20)
+
+    resultado = (
+        f"{ctx.author.mention} tira el dado y saca **{dado_jugador}**.\n"
+        f"{oponente.mention} tira el dado y saca **{dado_rival}**.\n"
+    )
+
+    if dado_jugador > dado_rival:
+        await database.update_user(ctx.author.id, {"coins": jugador["coins"] + 100})
+        await database.update_user(oponente.id, {"coins": rival["coins"] - 100})
+        resultado += f"¡{ctx.author.mention} gana el duelo y recibe 100 monedas!"
+    elif dado_rival > dado_jugador:
+        await database.update_user(ctx.author.id, {"coins": jugador["coins"] - 100})
+        await database.update_user(oponente.id, {"coins": rival["coins"] + 100})
+        resultado += f"¡{oponente.mention} gana el duelo y recibe 100 monedas!"
+    else:
+        resultado += "¡Empate! Nadie gana ni pierde monedas."
+
+    await ctx.send(resultado)
 
 bot.run(DISCORD_TOKEN)
