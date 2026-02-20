@@ -8,12 +8,7 @@ import random
 
 '''
 TODO
--Si el personaje llega 0 monedas muere y debe crear su personaje de nuevo
 
--Si la persona con la que se le hace duelo no ha credo su personaje, es mencionado
-para que lo haga con instrucciones
-
--Cambiar diálogos a más fantasía con tintes de humor negro
 
 - Hacer tests
 
@@ -48,11 +43,15 @@ async def mostrar_ayuda(ctx):
         "**Comandos disponibles:**\n"
         "`!razas` - Muestra la lista de razas disponibles.\n"
         "`!clases` - Muestra la lista de clases disponibles.\n"
-        "`!elegir <número><letra>` - Elige raza y clase. Ejemplo: `!elegir 1A`\n"
+        "`!elegir <número><letra>` - Elige tu raza y clase. Ejemplo: `!elegir 1A`\n"
         "`!perfil` - Muestra tu perfil actual.\n"
-        "`!cambiar_raza <raza>` - Cambia tu raza después de crear tu perfil. Cuesta 200 monedas.\n"
-        "`!cambiar_clase <clase>` - Cambia tu clase después de crear tu perfil. Cuesta 200 monedas.\n"
-        "`!info` - Muestra este mensaje de ayuda."
+        "`!cambiar_raza <raza>` - Cambia tu raza después de crear tu perfil. Cuesta 200 monedas. Si llegas a 0 monedas, tu personaje muere y debes crear uno nuevo.\n"
+        "`!cambiar_clase <clase>` - Cambia tu clase después de crear tu perfil. Cuesta 200 monedas. Si llegas a 0 monedas, tu personaje muere y debes crear uno nuevo.\n"
+        "`!duelo @usuario` - Reta a otro jugador a un duelo de dados. Ambos deben tener perfil y al menos 100 monedas. El ganador recibe 100 monedas del perdedor. Si un jugador queda en 0 monedas, muere y debe crear un nuevo perfil.\n"
+        "`!info` - Muestra este mensaje de ayuda.\n\n"
+        "Reglas especiales:\n"
+        "- Si tu personaje llega a 0 monedas, muere y debes crear uno nuevo con `!elegir`.\n"
+        "- Si retas a duelo a alguien sin perfil, será mencionado y recibirá instrucciones para crearlo.\n"
     )
     await ctx.send(help_text)
 
