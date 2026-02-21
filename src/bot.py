@@ -112,64 +112,54 @@ async def elegir(ctx, opcion: str):
 @bot.command(name="cambiar_raza")
 async def cambiar_raza(ctx, numero: int):
     if numero < 1 or numero > len(RACES):
-        await ctx.send("Ese número de raza no existe en este plano. Usa `!razas` para ver las opciones.")
+        await ctx.send(obtener_dialogo("error_razas"))
         return
     user = await database.read_user(ctx.author.id)
     if not user or not user.get("race") or not user.get("class"):
-        await ctx.send("Primero debes forjar tu destino con `!elegir`. No puedes huir de lo que no eres.")
+        await ctx.send("Primero debes forjar tu destino con !elegir.")
+        return
+    raza = RACES[numero - 1]
+    if user.get("race") == raza:
+        await ctx.send("Ya eres esa raza. El destino no permite cambios redundantes.")
         return
     coins = user.get("coins", 0)
     if coins < 200:
         await ctx.send("Tus bolsillos están tan vacíos como tu esperanza. Necesitas 200 monedas para cambiar de raza.")
         return
     new_coins = coins - 200
-    raza = RACES[numero - 1]
     if new_coins <= 0:
         await database.delete_user(ctx.author.id)
-        await ctx.send(obtener_dialogo(
-            "cambiar_raza_muerte",
-            user=ctx.author.mention
-        ))
+        await ctx.send(obtener_dialogo("cambiar_raza_muerte", user=ctx.author.mention))
     else:
         await database.update_user(ctx.author.id, {"race": raza, "coins": new_coins})
-        await ctx.send(obtener_dialogo(
-            "cambiar_raza_exito",
-            user=ctx.author.mention,
-            raza=raza,
-            coins=new_coins
-        ))
+        await ctx.send(obtener_dialogo("cambiar_raza_exito", user=ctx.author.mention, raza=raza, coins=new_coins))
 
 @bot.command(name="cambiar_clase")
 async def cambiar_clase(ctx, letra: str):
     letras = "ABCDEFGHIJ"
     letra = letra.upper()
     if letra not in letras:
-        await ctx.send("Esa letra de clase solo existe en las pesadillas de los bardos. Usa `!clases` para ver las opciones.")
+        await ctx.send(obtener_dialogo("error_clases"))
         return
     user = await database.read_user(ctx.author.id)
     if not user or not user.get("race") or not user.get("class"):
-        await ctx.send("Primero debes elegir tu destino con `!elegir`. No puedes cambiar lo que nunca fuiste.")
+        await ctx.send("Primero debes elegir tu destino con !elegir.")
+        return
+    clase = CLASSES[letras.index(letra)]
+    if user.get("class") == clase:
+        await ctx.send("Ya tienes esa clase. El destino no permite cambios redundantes.")
         return
     coins = user.get("coins", 0)
     if coins < 200:
         await ctx.send("No tienes suficientes monedas. Quizás vender tu alma sea más rentable.")
         return
     new_coins = coins - 200
-    clase = CLASSES[letras.index(letra)]
     if new_coins <= 0:
         await database.delete_user(ctx.author.id)
-        await ctx.send(obtener_dialogo(
-            "cambiar_clase_muerte",
-            user=ctx.author.mention
-        ))
+        await ctx.send(obtener_dialogo("cambiar_clase_muerte", user=ctx.author.mention))
     else:
         await database.update_user(ctx.author.id, {"class": clase, "coins": new_coins})
-        await ctx.send(obtener_dialogo(
-            "cambiar_clase_exito",
-            user=ctx.author.mention,
-            clase=clase,
-            coins=new_coins
-        ))
+        await ctx.send(obtener_dialogo("cambiar_clase_exito", user=ctx.author.mention, clase=clase, coins=new_coins))
 
 @bot.command(name="perfil")
 async def mostrar_perfil(ctx):
