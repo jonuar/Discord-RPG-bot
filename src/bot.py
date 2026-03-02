@@ -7,10 +7,11 @@ import random
 from dialogs import obtener_dialogo
 from assets_utils import combinar_tres_horizontal, obtener_imagen_raza, obtener_imagen_clase, combinar_imagenes_misma_altura, redimensionar_por_alto
 import re
+import logging
+import traceback
 
 '''
 TO DO:
--Add new item that activates when winning, will grab the item of the oponent
 -Error Handling and log
 -Dev/prod env
 -Testing
@@ -27,13 +28,13 @@ database = get_database()
 RACES = [
     {"nombre": "Humano", "descripcion": "Maestro en sobrevivir a lunes y dragones."},
     {"nombre": "Elfo", "descripcion": "Orejas largas, paciencia corta."},
-    {"nombre": "Orco", "descripcion": "Fuerza bruta, sutileza opcional."},
-    {"nombre": "Enano", "descripcion": "Barba épica, altura económica."},
-    {"nombre": "Gnomo", "descripcion": "Pequeño tamaño, grandes travesuras."},
-    {"nombre": "Goblin", "descripcion": "Pequeño, verde y siempre tramando algo."},
+    {"nombre": "Orco", "descripcion": "Fuerza bruta, higiene opcional."},
+    {"nombre": "Enano", "descripcion": "Barba épica, altura simple."},
+    {"nombre": "Gnomo", "descripcion": "Pequeño en tamaño, grande en travesuras."},
+    {"nombre": "Goblin", "descripcion": "Encorbado, verde y siempre tramando algo."},
     {"nombre": "Trol", "descripcion": "Grande, fuerte y no muy fan del jabón."},
-    {"nombre": "Dracónido", "descripcion": "Aliento de dragón, aliento matutino."},
-    {"nombre": "Tiefling", "descripcion": "Cuernos grandes, secretos más grandes."},
+    {"nombre": "Dracónido", "descripcion": "Escamas de dragón, aliento mortecino."},
+    {"nombre": "Tiefling", "descripcion": "Cuernos grandes, secretos oscuros."},
     {"nombre": "Mediano", "descripcion": "Nunca rechaza una segunda cena."}
 ]
 
@@ -270,188 +271,194 @@ async def perfil(ctx):
 @bot.command(name="duelo")
 async def duelo(ctx, oponente: discord.Member):
 
-    retador = await database.read_user(ctx.author.id)
-    rival = await database.read_user(oponente.id)
+    try:
+        retador = await database.read_user(ctx.author.id)
+        rival = await database.read_user(oponente.id)
 
-    if not retador:
-        await ctx.send(
-            f"No puedes desafiar a nadie, porque no eres más que un eco inexistente.\n"
-            f"El tiempo de esconderse terminó. Crea tu personaje antes de enfrentar tu inevitable derrota.\n Usa `!elegir <número><letra>`"
+        if not retador:
+            await ctx.send(
+                f"No puedes desafiar a nadie, porque no eres más que un eco inexistente.\n"
+                f"El tiempo de esconderse terminó. Crea tu personaje antes de enfrentar tu inevitable derrota.\n Usa `!elegir <número><letra>`"
+            )
+            logger.info(f"Duelo fallido: {ctx.author} no tiene perfil.")
+            return
+
+        if oponente.id == bot.user.id:
+            if retador and retador.get("coins", 0) >= 100:
+                await ctx.send(f"{ctx.author.mention}, ¿Tu osadía es fascinante, aventurero, pero todo en este mundo obedece a mi voluntad.\nUn simple aventurero que cree poder dictar las reglas del mundo que yo mismo he tejido.\n¿Acaso no ves que cada piedra, cada sombra y cada monstruo obedece a mi voluntad?\nAprende, mortal, que desafiarme es invocar tu propia condena.")
+                await database.update_user(ctx.author.id, {"coins": retador["coins"] - 200})
+                await ctx.send("- Un hechizo cae sobre ti y tu fortuna se desvanece: **§200 monedas desaparecen de tu alforja**")
+
+                retador_actualizado = await database.read_user(ctx.author.id)
+                if retador_actualizado.get("coins", 0) <= 0:
+                    await database.delete_user(ctx.author.id)
+                    await ctx.send(
+                        f"{ctx.author.mention} ha perdido toda su fortuna y su historia se disuelve en el olvido perpetuo.\n"
+                        "Crea un nuevo personaje con `!elegir <número de raza><letra de clase>`."
+                    )
+            logger.info(f"{ctx.author} intentó retar al bot.")
+            return
+
+        if not rival:
+            await ctx.send(
+                f"Tu rival debe tener su destino escrito en el grimorio. "
+                f"{oponente.mention}, deja de esconderte y crea tu personaje antes de enfrentar tu inevitable derrota.\nRenace con `!elegir <número de raza><letra de clase>`"
+            )
+            return
+
+        if oponente.id == retador["user_id"]:
+            await ctx.send(f"¿Puede alguien ser más denso que un slime? No puedes batirte en duelo contigo mismo, aunque sería divertido verte perder. {oponente.mention}, busca un verdadero oponente.")
+            return
+
+        if retador.get("coins", 0) < 100 or rival.get("coins", 0) < 100:
+            await ctx.send(
+                "Ambos deben tener al menos §100 monedas para arriesgar en este duelo. "
+                "Sin oro, solo les queda pelear por migajas... o por su dignidad."
+            )
+            return
+
+        raza_retador = retador.get("race")
+        raza_oponente = rival.get("race")
+
+        # Imágenes duelo
+        img_retador = redimensionar_por_alto(obtener_imagen_raza(raza_retador["nombre"]), alto=IMAGE_HEIGHT)
+        img_versus = redimensionar_por_alto("assets/duelo_versus.png", alto=IMAGE_HEIGHT)
+        img_oponente = redimensionar_por_alto(obtener_imagen_raza(raza_oponente["nombre"]), alto=IMAGE_HEIGHT)
+
+        ruta_combinada = combinar_tres_horizontal(img_retador, img_versus, img_oponente, alto=IMAGE_HEIGHT)
+        await ctx.send(file=discord.File(ruta_combinada))
+
+
+        dado_jugador = random.randint(1, 20)
+        dado_rival = random.randint(1, 20)
+        logger.info(f"Duelo iniciado: {ctx.author} ({dado_jugador}) vs {oponente} ({dado_rival})")
+
+        # Aplica el objeto especial (si existe) y recibe el efecto y mensaje
+        efecto, mensaje_objeto = await aplicar_objeto_duelo(
+            ctx, retador, rival, dado_jugador, dado_rival, oponente
         )
-        return
 
-    if oponente.id == bot.user.id:
-        if retador and retador.get("coins", 0) >= 100:
-            await ctx.send(f"{ctx.author.mention}, ¿Tu osadía es fascinante, aventurero, pero todo en este mundo obedece a mi voluntad.\nUn simple aventurero que cree poder dictar las reglas del mundo que yo mismo he tejido.\n¿Acaso no ves que cada piedra, cada sombra y cada monstruo obedece a mi voluntad?\nAprende, mortal, que desafiarme es invocar tu propia condena.")
-            await database.update_user(ctx.author.id, {"coins": retador["coins"] - 200})
-            await ctx.send("- Un hechizo cae sobre ti y tu fortuna se desvanece: **§200 monedas desaparecen de tu alforja**")
-
-            retador_actualizado = await database.read_user(ctx.author.id)
-            if retador_actualizado.get("coins", 0) <= 0:
-                await database.delete_user(ctx.author.id)
-                await ctx.send(
-                    f"{ctx.author.mention} ha perdido toda su fortuna y su historia se disuelve en el olvido perpetuo.\n"
-                    "Crea un nuevo personaje con `!elegir <número de raza><letra de clase>`."
-                )
-        return
-
-    if not rival:
-        await ctx.send(
-            f"Tu rival debe tener su destino escrito en el grimorio. "
-            f"{oponente.mention}, deja de esconderte y crea tu personaje antes de enfrentar tu inevitable derrota.\nRenace con `!elegir <número de raza><letra de clase>`"
+        # Construye el resultado base
+        resultado = (
+            f"En la Arena del Azar, {ctx.author.mention} lanza su dado y obtiene **{dado_jugador}**.\n"
+            f"{oponente.mention} responde con un giro dramático y saca **{dado_rival}**.\n"
         )
-        return
 
-    if oponente.id == retador["user_id"]:
-        await ctx.send(f"¿Puede alguien ser más denso que un slime? No puedes batirte en duelo contigo mismo, aunque sería divertido verte perder. {oponente.mention}, busca un verdadero oponente.")
-        return
+        if mensaje_objeto:
+            resultado += mensaje_objeto + "\n"
 
-    if retador.get("coins", 0) < 100 or rival.get("coins", 0) < 100:
-        await ctx.send(
-            "Ambos deben tener al menos §100 monedas para arriesgar en este duelo. "
-            "Sin oro, solo les queda pelear por migajas... o por su dignidad."
-        )
-        return
+        if dado_jugador > dado_rival:
+            # El retador gana el duelo
+            saldo_previo = retador["coins"]
 
-    raza_retador = retador.get("race")
-    raza_oponente = rival.get("race")
-
-    # Imágenes duelo
-    img_retador = redimensionar_por_alto(obtener_imagen_raza(raza_retador["nombre"]), alto=IMAGE_HEIGHT)
-    img_versus = redimensionar_por_alto("assets/duelo_versus.png", alto=IMAGE_HEIGHT)
-    img_oponente = redimensionar_por_alto(obtener_imagen_raza(raza_oponente["nombre"]), alto=IMAGE_HEIGHT)
-
-    ruta_combinada = combinar_tres_horizontal(img_retador, img_versus, img_oponente, alto=IMAGE_HEIGHT)
-    await ctx.send(file=discord.File(ruta_combinada))
-
-
-    dado_jugador = random.randint(1, 20)
-    dado_rival = random.randint(1, 20)
-
-    # Aplica el objeto especial (si existe) y recibe el efecto y mensaje
-    efecto, mensaje_objeto = await aplicar_objeto_duelo(
-        ctx, retador, rival, dado_jugador, dado_rival, oponente
-    )
-
-    # Construye el resultado base
-    resultado = (
-        f"En la Arena del Azar, {ctx.author.mention} lanza su dado y obtiene **{dado_jugador}**.\n"
-        f"{oponente.mention} responde con un giro dramático y saca **{dado_rival}**.\n"
-    )
-
-    if mensaje_objeto:
-        resultado += mensaje_objeto + "\n"
-
-    if dado_jugador > dado_rival:
-        # El retador gana el duelo
-        saldo_previo = retador["coins"]
-
-        # LÓGICA
-        if efecto == "pizza_yogur":
-            ganancia = 100 * 3
-            saldo_final = saldo_previo + ganancia
-            await database.update_user(ctx.author.id, {"coins": saldo_final})
-            nuevo_saldo_oponente = rival["coins"] - 100
-            await database.update_user(oponente.id, {"coins": nuevo_saldo_oponente})
-        else:
-            ganancia = 100
-            saldo_final = saldo_previo + ganancia
-            await database.update_user(ctx.author.id, {"coins": saldo_final})
-            nuevo_saldo_oponente = rival["coins"] - ganancia
-            await database.update_user(oponente.id, {"coins":  nuevo_saldo_oponente})
-
-        # LÓGICA MANO
-        if efecto == "mano_despojo":
-            inventario_oponente = rival.get("inventory", [])
-            # Excluye la Mano del robo
-            robables = [item for item in inventario_oponente if item != "Mano del Despojo"]
-            if robables:
-                robado = random.choice(robables)
-                # Quita el objeto al oponente y lo da al retador
-                inventario_oponente.remove(robado)
-                inventario_retador = retador.get("inventory", [])
-                inventario_retador.append(robado)
-                await database.update_user(oponente.id, {"inventory": inventario_oponente})
-                await database.update_user(ctx.author.id, {"inventory": inventario_retador})
-                # resultado += f"\n¡{ctx.author.mention} ha robado **{robado}** del inventario de {oponente.mention} gracias a la Mano del Despojo!\n"
-                resultado += obtener_dialogo(
-                    "duelo_objeto_mano_despojo",
-                    user=ctx.author.mention,
-                    enemigo=oponente.mention,
-                    objeto=robado
-                ) + "\n"
+            # LÓGICA
+            if efecto == "pizza_yogur":
+                ganancia = 100 * 3
+                saldo_final = saldo_previo + ganancia
+                await database.update_user(ctx.author.id, {"coins": saldo_final})
+                nuevo_saldo_oponente = rival["coins"] - 100
+                await database.update_user(oponente.id, {"coins": nuevo_saldo_oponente})
             else:
-                resultado += f"\n{ctx.author.mention} intentó robar un objeto, pero {oponente.mention} no tenía nada útil en su inventario."
+                ganancia = 100
+                saldo_final = saldo_previo + ganancia
+                await database.update_user(ctx.author.id, {"coins": saldo_final})
+                nuevo_saldo_oponente = rival["coins"] - ganancia
+                await database.update_user(oponente.id, {"coins":  nuevo_saldo_oponente})
 
-        # Construye y envía el mensaje de resultado (incluyendo mensaje_objeto si aplica)
-        resultado += (
-            f"¡{ctx.author.mention} aplasta a su rival y saquea §{ganancia} monedas de su bolsa! {oponente.mention}, siempre puedes vender tu dignidad para recuperar el oro perdido.\n"
-        )
-        rival_actualizado = await database.read_user(oponente.id)
-        if rival_actualizado and rival_actualizado.get("coins", 0) <= 0:
-            await database.delete_user(oponente.id)
+            # LÓGICA MANO
+            if efecto == "mano_despojo":
+                inventario_oponente = rival.get("inventory", [])
+                # Excluye la Mano del robo
+                robables = [item for item in inventario_oponente if item != "Mano del Despojo"]
+                if robables:
+                    robado = random.choice(robables)
+                    # Quita el objeto al oponente y lo da al retador
+                    inventario_oponente.remove(robado)
+                    inventario_retador = retador.get("inventory", [])
+                    inventario_retador.append(robado)
+                    await database.update_user(oponente.id, {"inventory": inventario_oponente})
+                    await database.update_user(ctx.author.id, {"inventory": inventario_retador})
+                    # resultado += f"\n¡{ctx.author.mention} ha robado **{robado}** del inventario de {oponente.mention} gracias a la Mano del Despojo!\n"
+                    resultado += obtener_dialogo(
+                        "duelo_objeto_mano_despojo",
+                        user=ctx.author.mention,
+                        enemigo=oponente.mention,
+                        objeto=robado
+                    ) + "\n"
+                else:
+                    resultado += f"\n{ctx.author.mention} intentó robar un objeto, pero {oponente.mention} no tenía nada útil en su inventario."
+
+            # Construye y envía el mensaje de resultado (incluyendo mensaje_objeto si aplica)
             resultado += (
-                f"\n{oponente.mention}, tus arcas se vaciaron en un suspiro, y tu nombre fue borrado de los pergaminos del tiempo.\n"
-                "Deberás crear un nuevo perfil con `!elegir <número de raza><letra de clase>`."
-    )
-
-
-        await ctx.send(resultado)
-        return
-    elif dado_rival > dado_jugador:
-        if efecto == "elixir_bruma":
-            # El retador NO pierde monedas
-            await database.update_user(ctx.author.id, {"coins": retador["coins"]})
-            await database.update_user(oponente.id, {"coins": rival["coins"] + 100})
-            #resultado += mensaje_objeto
-            await ctx.send(resultado)
-            return
-        elif efecto == "hongo_abismo":
-            coins_jugador = max(1, retador["coins"] - 100)
-            coins_oponente = max(1, rival["coins"] - 100)
-            # El retador pierde monedas normalmente
-            await database.update_user(ctx.author.id, {"coins": coins_jugador})
-            # El oponente pierde 100 monedas extra (pero if dado_jugador > enos de 1)
-            await database.update_user(oponente.id, {"coins": coins_oponente})
-            await ctx.send(resultado)
-            return
-        else:
-            # Lógica normal de duelo
-            await database.update_user(ctx.author.id, {"coins": retador["coins"] - 100})
-            await database.update_user(oponente.id, {"coins": rival["coins"] + 100})
-            nuevo_saldo = retador["coins"] - 100
-            await database.update_user(ctx.author.id, {"coins": nuevo_saldo})
-            await database.update_user(oponente.id, {"coins": rival["coins"] + 100})
-            if nuevo_saldo <= 0:
-                await database.delete_user(ctx.author.id)
+                f"¡{ctx.author.mention} aplasta a su rival y saquea §{ganancia} monedas de su bolsa! {oponente.mention}, siempre puedes vender tu dignidad para recuperar el oro perdido.\n"
+            )
+            rival_actualizado = await database.read_user(oponente.id)
+            if rival_actualizado and rival_actualizado.get("coins", 0) <= 0:
+                await database.delete_user(oponente.id)
                 resultado += (
-                    f"\n{ctx.author.mention}, tus arcas se vaciaron en un suspiro, y tu nombre fue borrado de los pergaminos del tiempo.\n"
-                    "Deberá crear un nuevo perfil con `!elegir <número de raza><letra de clase>`."
-                )
-            else:
-                resultado += (
-                    f"¡{oponente.mention} se alza victorioso y roba §100 monedas! "
-                    f"{ctx.author.mention}, quizás la suerte te sonría en tu próxima vida... o no."
-                )
-            await ctx.send(resultado)
-            return
-    else:
-        # Empate
-        resultado += (
-            "¡Empate! Los dioses del azar se burlan de ambos y nadie gana ni pierde monedas. "
-            "Quizás deberían dedicarse a la poesía."
+                    f"\n{oponente.mention}, tus arcas se vaciaron en un suspiro, y tu nombre fue borrado de los pergaminos del tiempo.\n"
+                    "Deberás crear un nuevo perfil con `!elegir <número de raza><letra de clase>`."
         )
 
-        await ctx.send(resultado)
+
+            await ctx.send(resultado)
+            return
+        elif dado_rival > dado_jugador:
+            if efecto == "elixir_bruma":
+                # El retador NO pierde monedas
+                await database.update_user(ctx.author.id, {"coins": retador["coins"]})
+                await database.update_user(oponente.id, {"coins": rival["coins"] + 100})
+                #resultado += mensaje_objeto
+                await ctx.send(resultado)
+                return
+            elif efecto == "hongo_abismo":
+                coins_jugador = max(1, retador["coins"] - 100)
+                coins_oponente = max(1, rival["coins"] - 100)
+                # El retador pierde monedas normalmente
+                await database.update_user(ctx.author.id, {"coins": coins_jugador})
+                # El oponente pierde 100 monedas extra (pero if dado_jugador > enos de 1)
+                await database.update_user(oponente.id, {"coins": coins_oponente})
+                await ctx.send(resultado)
+                return
+            else:
+                # Lógica normal de duelo
+                await database.update_user(ctx.author.id, {"coins": retador["coins"] - 100})
+                await database.update_user(oponente.id, {"coins": rival["coins"] + 100})
+                nuevo_saldo = retador["coins"] - 100
+                await database.update_user(ctx.author.id, {"coins": nuevo_saldo})
+                await database.update_user(oponente.id, {"coins": rival["coins"] + 100})
+                if nuevo_saldo <= 0:
+                    await database.delete_user(ctx.author.id)
+                    resultado += (
+                        f"\n{ctx.author.mention}, tus arcas se vaciaron en un suspiro, y tu nombre fue borrado de los pergaminos del tiempo.\n"
+                        "Deberá crear un nuevo perfil con `!elegir <número de raza><letra de clase>`."
+                    )
+                else:
+                    resultado += (
+                        f"¡{oponente.mention} se alza victorioso y roba §100 monedas! "
+                        f"{ctx.author.mention}, quizás la suerte te sonría en tu próxima vida... o no."
+                    )
+                await ctx.send(resultado)
+                return
+        else:
+            # Empate
+            resultado += (
+                "¡Empate! Los dioses del azar se burlan de ambos y nadie gana ni pierde monedas. "
+                "Quizás deberían dedicarse a la poesía."
+            )
+
+            await ctx.send(resultado)
+    except Exception as e:
+        logger.error(f"Error inesperado en duelo: {e}\n{traceback.format_exc()}")
 
 @duelo.error
 async def duelo_error(ctx, error):
     if isinstance(error, MemberNotFound):
         await ctx.send("¡Intentaste batirte en duelo con un fantasma! Ese usuario no existe en este servidor o no lo mencionaste correctamente. Usa `!duelo @usuario`.")
+        logger.warning(f"MemberNotFound en duelo: {ctx.message.content}")
     else:
-        print(error)
+        logger.error(f"Error en duelo: {error}\n{traceback.format_exc()}")
         await ctx.send("Algo salió mal en el duelo. Los dioses del código están confundidos.")
-
 
 # Uso de objetos en duelo
 async def aplicar_objeto_duelo(ctx, user, oponente_db, dado_user, dado_oponente, oponente_member):
@@ -505,36 +512,45 @@ async def mostrar_tienda(ctx):
 
 @bot.command(name="comprar")
 async def comprar_objeto(ctx, numero: int):
-    user = await database.read_user(ctx.author.id)
-    if not user:
-        await ctx.send("Debes tener un perfil antes de comprar. Usa `!elegir <número de raza><letra de clase>` para crearlo.")
-        return
-    if numero < 1 or numero > len(OBJETOS_TIENDA):
-        await ctx.send("Ese objeto no existe en la tienda. Usa `!tienda` para ver las opciones.")
-        return
-    objeto = OBJETOS_TIENDA[numero - 1]
-    inventario = user.get("inventory", [])
-    if objeto["nombre"] in inventario:
+    try:
+        user = await database.read_user(ctx.author.id)
+        if not user:
+            await ctx.send("Debes tener un perfil antes de comprar. Usa `!elegir <número de raza><letra de clase>` para crearlo.")
+            logger.info(f"Intento de compra sin perfil por {ctx.author}")
+            return
+        if numero < 1 or numero > len(OBJETOS_TIENDA):
+            await ctx.send("Ese objeto no existe en la tienda. Usa `!tienda` para ver las opciones.")
+            logger.info(f"Intento de compra de objeto inexistente por {ctx.author}: {numero}")
+            return
+        objeto = OBJETOS_TIENDA[numero - 1]
+        inventario = user.get("inventory", [])
+        if objeto["nombre"] in inventario:
+            imagen_mercader = redimensionar_por_alto("assets/mercader.png", alto=IMAGE_HEIGHT)
+            await ctx.send(file=discord.File(imagen_mercader))
+            await ctx.send(f"Ya tienes un **{objeto['emoji']} {objeto['nombre']}** en tu inventario. Apacigua tu codicia.")
+            logger.info(f"{ctx.author} intentó comprar un objeto repetido: {objeto['nombre']}")
+            return
+        coins = user.get("coins", 0)
+        if coins < objeto["precio"]:
+            imagen_mercader = redimensionar_por_alto("assets/mercader.png", alto=IMAGE_HEIGHT)
+            await ctx.send(file=discord.File(imagen_mercader))
+            await ctx.send(obtener_dialogo("compra_fallo", user=ctx.author.mention))
+            logger.info(f"{ctx.author} intentó comprar sin suficiente oro: {objeto['nombre']}")
+            return
+        nuevo_inventario = inventario + [objeto["nombre"]]
+        await database.update_user(ctx.author.id, {
+            "coins": coins - objeto["precio"],
+            "inventory": nuevo_inventario
+        })
         imagen_mercader = redimensionar_por_alto("assets/mercader.png", alto=IMAGE_HEIGHT)
         await ctx.send(file=discord.File(imagen_mercader))
-        await ctx.send(f"Ya tienes un **{objeto['emoji']} {objeto['nombre']}** en tu inventario. Apacigua tu codicia.")
-        return
-    coins = user.get("coins", 0)
-    if coins < objeto["precio"]:
-        imagen_mercader = redimensionar_por_alto("assets/mercader.png", alto=IMAGE_HEIGHT)
-        await ctx.send(file=discord.File(imagen_mercader))
-        await ctx.send(obtener_dialogo("compra_fallo", user=ctx.author.mention))
-        return
-    nuevo_inventario = inventario + [objeto["nombre"]]
-    await database.update_user(ctx.author.id, {
-        "coins": coins - objeto["precio"],
-        "inventory": nuevo_inventario
-    })
-    imagen_mercader = redimensionar_por_alto("assets/mercader.png", alto=IMAGE_HEIGHT)
-    await ctx.send(file=discord.File(imagen_mercader))
-    await ctx.send(
-        obtener_dialogo("compra_exito", user=ctx.author.mention, objeto=f"{objeto['emoji']} {objeto['nombre']}")
-    )
+        await ctx.send(
+            obtener_dialogo("compra_exito", user=ctx.author.mention, objeto=f"{objeto['emoji']} {objeto['nombre']}")
+        )
+        logger.info(f"{ctx.author} compró {objeto['nombre']} por {objeto['precio']} monedas.")
+    except Exception as e:
+        logger.error(f"Error en comprar_objeto: {e}\n{traceback.format_exc()}")
+        await ctx.send("Ocurrió un error inesperado al intentar comprar. Contacta al desarrollador.")
 
 @bot.command(name="top")
 async def top(ctx, top: int = 3):
@@ -576,5 +592,35 @@ async def top(ctx, top: int = 3):
             mensaje += f"{idx}. {nombres} — **§{coins}** monedas\n"
 
     await ctx.send(mensaje)
+
+# Configuración logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler("rpgbot.log", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("RPGbot")
+
+@bot.event
+async def on_ready():
+    logger.info(f"Bot conectado como {bot.user}")
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        # await ctx.send("Ese comando no existe. Usa `!info` para ver los comandos disponibles.")
+        logger.warning(f"Comando no encontrado: {ctx.message.content}")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        # await ctx.send("Faltan argumentos en el comando. Consulta `!info`.")
+        logger.warning(f"Argumentos faltantes en comando: {ctx.message.content}")
+    elif isinstance(error, commands.BadArgument):
+        # await ctx.send("Argumento inválido. Consulta el formato en `!info`.")
+        logger.warning(f"Argumento inválido en comando: {ctx.message.content}")
+    else:
+        # await ctx.send("Ocurrió un error inesperado. Consulta al desarrollador.")
+        logger.error(f"Error inesperado: {error}\n{traceback.format_exc()}")
 
 bot.run(DISCORD_TOKEN)
