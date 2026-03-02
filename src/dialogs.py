@@ -62,7 +62,7 @@ DIALOGOS = {
     "perfil_vacio": [
         "{user}, tu existencia es tan vacía como tu perfil.\nUsa `!elegir <número de raza><letra de clase>` para comenzar tu trágica aventura.",
         "{user}, no tienes historia, no tienes gloria.\nUsa `!elegir <número de raza><letra de clase>` y acepta tu destino.",
-        "Eres un alma errante sin propósito, {user},.\nCrea tu perfil con `!elegir <número de raza><letra de clase>` y abraza el sufrimiento."
+        "Eres un alma errante sin propósito, {user}.\nCrea tu perfil con `!elegir <número de raza><letra de clase>` y abraza el sufrimiento."
     ],
     "perfil": [
         "{user}, eres un **{raza}** y formas parte del gremio **{clase}**.\nEn tu bolsa guardas **§{coins}** monedas\nInventario: {inventario}.",

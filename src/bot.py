@@ -51,7 +51,7 @@ CLASSES = [
 ]
 
 OBJETOS_TIENDA = [
-    {"nombre": "Elixir de la Bruma", "emoji": "🏺", "precio": 200, "descripcion": "Mejora tu suerte en el duelo: si pierdes, tu fortuna no disminuye."},
+    {"nombre": "Elixir de la Bruma", "emoji": "🏺", "precio": 100, "descripcion": "Mejora tu suerte en el duelo: si pierdes, tu fortuna no disminuye."},
     {"nombre": "Hongo del Abismo", "emoji": "🍄", "precio": 100, "descripcion": "Afecta a tu enemigo: si eres derrotado, ambos pierden §100 monedas."},
     {"nombre": "Pizza con yogur", "emoji": "🍕", "precio": 200, "descripcion": "Multiplica tu bolsa: si ganas el duelo, tus monedas se multiplican por tres."},
     {"nombre": "Mano del Despojo", "emoji": "🫳🏻", "precio": 200, "descripcion": "Si ganas el duelo, roba un objeto aleatorio del inventario de tu oponente (que no sea otra Mano)."}
@@ -90,11 +90,7 @@ async def info(ctx):
 
 @bot.command(name="razas")
 async def listar_razas(ctx):
-    # razas_text = "\n".join([f"{i+1}. {raza}" for i, raza in enumerate(RACES)])
-    # await ctx.send(
-    #     f"Las razas disponibles son:\n\n{razas_text}\n"
-    #     "\nElige sabiamente... o no, igual el destino te alcanzará."
-    # )
+
     mensaje = "**Las razas disponibles son:**\n\n"
     for i, raza in enumerate(RACES, 1):
         mensaje += f"{i}. **{raza['nombre']}** — {raza['descripcion']}\n"
@@ -102,12 +98,7 @@ async def listar_razas(ctx):
 
 @bot.command(name="clases")
 async def listar_clases(ctx):
-    # letras = "ABCDEFGHIJ"
-    # clases_text = "\n".join([f"{letras[i]}. {clase}" for i, clase in enumerate(CLASSES)])
-    # await ctx.send(
-    #     f"Las sendas del infortunio te ofrecen estas clases:\n\n{clases_text}\n"
-    #     "\nRecuerda: ningún mago ha muerto de viejo, y ningún bárbaro ha muerto de sabio."
-    # )
+
     mensaje = "**Las sendas del infortunio te ofrecen estas clases:**\n\n"
     for clase in CLASSES:
         mensaje += f"{clase['letra']}. **{clase['nombre']}** — {clase['descripcion']}\n"
@@ -240,8 +231,8 @@ async def perfil(ctx):
     coins = user.get("coins", 0)
     inventory = user.get("inventory", [])
 
-    if isinstance(clase, str):
-        clase = next((c for c in CLASSES if c["nombre"] == clase), {"nombre": clase})
+    # if isinstance(clase, str):
+    #     clase = next((c for c in CLASSES if c["nombre"] == clase), {"nombre": clase})
 
     # Añade emojis al inventario y muestra cada objeto en una línea
     if inventory:
