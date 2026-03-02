@@ -97,6 +97,9 @@ Sprites de personajes por raza utilizados para selección, previsualización y g
 - `!comprar <número>`  
   Compra un objeto de la tienda para tu inventario. Solo puedes tener un ejemplar de cada objeto especial.
 
+- `!top`
+  Muestra el top 5 de los jugadores con más monedas.
+
 - `!info`  
   Muestra la ayuda con todos los comandos, reglas y mecánicas especiales.
 

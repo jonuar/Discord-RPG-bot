@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord.ext.commands import MemberNotFound, CommandInvokeError
+from discord.ext.commands import MemberNotFound
 from db import get_database
 from config import Config
 import random
@@ -10,8 +10,8 @@ import re
 
 '''
 TO DO:
--Short decription: classes/races
--Error Handling
+-Add new item that activates when winning, will grab the item of the oponent
+-Error Handling and log
 -Dev/prod env
 -Testing
 '''
@@ -23,10 +23,6 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 database = get_database()
-
-# RACES = [
-#     "Humano", "Elfo", "Orco", "Enano", "Gnomo", "Goblin", "Trol", "Dracónido", "Tiefling", "Mediano"
-# ]
 
 RACES = [
     {"nombre": "Humano", "descripcion": "Maestro en sobrevivir a lunes y dragones."},
@@ -41,10 +37,6 @@ RACES = [
     {"nombre": "Mediano", "descripcion": "Nunca rechaza una segunda cena."}
 ]
 
-# CLASSES = [
-#     "Guerrero", "Mago", "Druida", "Ladrón", "Paladín", "Bárbaro", "Clérigo", "Hechicero", "Monje", "Explorador"
-# ]
-
 CLASSES = [
     {"letra": "A", "nombre": "Guerrero", "descripcion": "Resuelve todo a golpes, incluso los acertijos."},
     {"letra": "B", "nombre": "Mago", "descripcion": "Hace magia... y desaparecer su dinero."},
@@ -58,11 +50,11 @@ CLASSES = [
     {"letra": "J", "nombre": "Explorador", "descripcion": "Siempre perdido, pero con estilo."}
 ]
 
-
 OBJETOS_TIENDA = [
     {"nombre": "Elixir de la Bruma", "emoji": "🏺", "precio": 200, "descripcion": "Mejora tu suerte en el duelo: si pierdes, tu fortuna no disminuye."},
     {"nombre": "Hongo del Abismo", "emoji": "🍄", "precio": 100, "descripcion": "Afecta a tu enemigo: si eres derrotado, ambos pierden §100 monedas."},
-    {"nombre": "Pizza con yogur", "emoji": "🍕", "precio": 200, "descripcion": "Multiplica tu bolsa: si ganas el duelo, tus monedas se multiplican por tres."}
+    {"nombre": "Pizza con yogur", "emoji": "🍕", "precio": 200, "descripcion": "Multiplica tu bolsa: si ganas el duelo, tus monedas se multiplican por tres."},
+    {"nombre": "Mano del Despojo", "emoji": "🫳🏻", "precio": 200, "descripcion": "Si ganas el duelo, roba un objeto aleatorio del inventario de tu oponente (que no sea otra Mano)."}
 ]
 OBJETOS_ESPECIALES = [obj["nombre"] for obj in OBJETOS_TIENDA]
 IMAGE_HEIGHT = 120
@@ -276,8 +268,8 @@ async def perfil(ctx):
         await ctx.send(obtener_dialogo(
             "perfil",
             user=ctx.author.mention,
-            raza=raza,
-            clase=clase,
+            raza=raza["nombre"],
+            clase=clase["nombre"],
             coins=coins,
             inventario=inventario_str
         ))
@@ -362,6 +354,8 @@ async def duelo(ctx, oponente: discord.Member):
     if dado_jugador > dado_rival:
         # El retador gana el duelo
         saldo_previo = retador["coins"]
+
+        # LÓGICA
         if efecto == "pizza_yogur":
             ganancia = 100 * 3
             saldo_final = saldo_previo + ganancia
@@ -374,6 +368,30 @@ async def duelo(ctx, oponente: discord.Member):
             await database.update_user(ctx.author.id, {"coins": saldo_final})
             nuevo_saldo_oponente = rival["coins"] - ganancia
             await database.update_user(oponente.id, {"coins":  nuevo_saldo_oponente})
+
+        # LÓGICA MANO
+        if efecto == "mano_despojo":
+            inventario_oponente = rival.get("inventory", [])
+            # Excluye la Mano del robo
+            robables = [item for item in inventario_oponente if item != "Mano del Despojo"]
+            if robables:
+                robado = random.choice(robables)
+                # Quita el objeto al oponente y lo da al retador
+                inventario_oponente.remove(robado)
+                inventario_retador = retador.get("inventory", [])
+                inventario_retador.append(robado)
+                await database.update_user(oponente.id, {"inventory": inventario_oponente})
+                await database.update_user(ctx.author.id, {"inventory": inventario_retador})
+                # resultado += f"\n¡{ctx.author.mention} ha robado **{robado}** del inventario de {oponente.mention} gracias a la Mano del Despojo!\n"
+                resultado += obtener_dialogo(
+                    "duelo_objeto_mano_despojo",
+                    user=ctx.author.mention,
+                    enemigo=oponente.mention,
+                    objeto=robado
+                ) + "\n"
+            else:
+                resultado += f"\n{ctx.author.mention} intentó robar un objeto, pero {oponente.mention} no tenía nada útil en su inventario."
+
         # Construye y envía el mensaje de resultado (incluyendo mensaje_objeto si aplica)
         resultado += (
             f"¡{ctx.author.mention} aplasta a su rival y saquea §{ganancia} monedas de su bolsa! {oponente.mention}, siempre puedes vender tu dignidad para recuperar el oro perdido.\n"
@@ -474,6 +492,12 @@ async def aplicar_objeto_duelo(ctx, user, oponente_db, dado_user, dado_oponente,
         await database.update_user(ctx.author.id, {"inventory": inventario})
         efecto = "pizza_yogur"
         mensaje = obtener_dialogo("duelo_objeto_pizza_yogur", user=ctx.author.mention)
+    # Mano de Despojo: solo se elimina si gana
+    elif objeto_usado == "Mano del Despojo" and dado_user > dado_oponente:
+        inventario.remove(objeto_usado)
+        await database.update_user(ctx.author.id, {"inventory": inventario})
+        efecto = "mano_despojo"
+        mensaje = ""
     return efecto, mensaje
 
 

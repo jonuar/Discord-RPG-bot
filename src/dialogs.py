@@ -101,7 +101,7 @@ DIALOGOS = {
     ],
     "compra_exito": [
         "\"Excelente elección...\", murmura **El Mercader** mientras te entrega el **{objeto}**.\n\"Que el destino te sea propicio... o al menos entretenido.\"",
-        "**El Mercader** sonríe con dientes dorados.\n\"**{objeto}** es tuyo. Recuerda: toda bendición es una maldición disfrazada.\"",
+        "**El Mercader** sonríe con dientes dorados.\n**{objeto}** es tuyo.\n\"Recuerda: toda bendición es una maldición disfrazada.\"",
         "Con un gesto ágil, **El Mercader** te pasa el **{objeto}**.\n\"No acepto devoluciones, ni almas rotas.\""
     ],
     "compra_fallo": [
@@ -115,15 +115,22 @@ DIALOGOS = {
         "La **bruma** esmeralda rodea a {user}, evitando que el oro cambie de manos tras la derrota."
     ],
     "duelo_objeto_hongo_abismo": [
-        "{user} consume el **🍄 Hongo del Abismo**. Una sombra oscura envuelve la arena y ambos combatientes pierden §100 monedas.",
+        "{user} consume el **🍄 Hongo del Abismo**. Una sombra oscura envuelve la arena y ambos combatientes pierden §100 monedas. {enemigo} no puede escapar de la maldición.",
         "El **🍄 Hongo del Abismo** libera su maldición: tanto {user} como {enemigo} sienten el peso de la derrota y pierden §100 monedas.",
-        "{user} sonríe sombríamente tras comer el **hongo**, y la desgracia cae sobre ambos: §100 monedas menos para cada uno."
+        "{user} sonríe sombríamente tras comer el **hongo**, y la desgracia cae sobre ambos: §100 monedas menos para cada uno. {enemigo} maldice su suerte."
     ],
     "duelo_objeto_pizza_yogur": [
         "{user} devora la **🍕 Pizza con yogur**. ¡Su fortuna se triplica ante la mirada incrédula de todos!",
         "El poder de la **🍕 Pizza con yogur** multiplica la bolsa de {user} por tres. ¡La gula a veces paga!",
         "{user} saborea la extraña **🍕 Pizza con yogur** y el oro fluye como nunca antes: ¡bolsa triplicada!"
     ],
+    "duelo_objeto_mano_despojo": [
+        "{user} invoca la **🫳🏻 Mano del Despojo**. Un aura espectral surge y arrebata **{objeto}** de las manos temblorosas de {enemigo}.",
+        "La **🫳🏻 Mano del Despojo** de {user} se desliza como una sombra y roba **{objeto}** de {enemigo}, que apenas puede reaccionar.",
+        "Entre destellos siniestros, {user} extiende la **🫳🏻 Mano del Despojo** y despoja a {enemigo} de su preciado **{objeto}**.",
+        "Un viento frío recorre la arena cuando {user} activa la **🫳🏻 Mano del Despojo**. {enemigo} siente cómo **{objeto}** desaparece de su inventario.",
+        "La codicia de {user} se materializa en la **🫳🏻 Mano del Despojo**, que arranca **{objeto}** de las pertenencias de {enemigo} ante la mirada atónita de todos."
+]
 }
 
 def obtener_dialogo(clave, **kwargs):
