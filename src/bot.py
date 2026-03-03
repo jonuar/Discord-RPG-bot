@@ -1,23 +1,34 @@
+from assets_utils import (
+    combinar_tres_horizontal,
+    obtener_imagen_raza,
+    obtener_imagen_clase,
+    combinar_imagenes_misma_altura,
+    redimensionar_por_alto,
+)
 import discord
 from discord.ext import commands
 from discord.ext.commands import MemberNotFound
-from db import get_database
 from config import Config
+from db import get_database
 import random
 from dialogs import obtener_dialogo
-from assets_utils import combinar_tres_horizontal, obtener_imagen_raza, obtener_imagen_clase, combinar_imagenes_misma_altura, redimensionar_por_alto
 import re
 import logging
 import traceback
+import google.genai as genai
+from google.genai import types
 
 '''
 TO DO:
--Error Handling and log
--Dev/prod env
+-Separate commands in files
+-IA agent command (roast or narrar)
 -Testing
 '''
 
 DISCORD_TOKEN = Config.DISCORD_TOKEN
+GEMINI_API_KEY = Config.GEMINI_API_KEY
+client = genai.Client(api_key=GEMINI_API_KEY)
+scene_context = {}
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -88,6 +99,62 @@ async def info(ctx):
 
     )
     await ctx.send(mensaje)
+
+
+@bot.command(name="narrar")
+async def narrar(ctx, *, user_input: str = ""):
+    channel_id = str(ctx.channel.id)
+    player_name = ctx.author.display_name
+
+    # Obtén la info del jugador desde la base de datos
+    user_doc = await database.read_user(ctx.author.id)
+    player_race = user_doc.get("race", {}).get("nombre", "aventurero") if user_doc else "aventurero"
+    player_class = user_doc.get("class", {}).get("nombre", "explorador") if user_doc else "explorador"
+
+    # Recupera el contexto anterior de la colección 'scene_context'
+    scenes_collection = database.client[Config.DB_NAME]["scene_context"]
+    scene_doc = await scenes_collection.find_one({"channel_id": channel_id})
+    context = scene_doc["context"] if scene_doc else ""
+
+    # Prompt mejorado: corto, con raza y clase
+    prompt = (
+        f"Estás narrando una partida épica de rol para {player_name}, un/a {player_race} {player_class}. "
+        f"Si hay escenas anteriores, continúa la historia con este contexto:\n{context}\n\n"
+        f"{player_name}: {user_input}\n"
+    )
+
+    # Usa google.genai GenerativeModel directamente
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction='Eres un Dungeon Master con humor ácido. Responde con una narración breve (máximo 2 frases) usando el nombre, raza y clse del jugador.',
+            temperature=0.3,
+        ),
+    )
+    print(f"RESPONSE => {response.text}")
+    print(response.candidates[0].finish_reason)
+    if hasattr(response, "text"):
+        narration = response.text
+    elif hasattr(response, "candidates") and response.candidates:
+        narration = response.candidates[0].content.parts[0].text
+    else:
+        narration = "No pude narrar la escena. Intenta de nuevo."
+
+    new_context = context + f"\n{player_name}: {user_input}\nDM: {narration}"
+    await scenes_collection.update_one(
+        {"channel_id": channel_id},
+        {"$set": {
+                "context": new_context,
+                "player_name": player_name,
+                "player_race": player_race,
+                "player_class": player_class,
+            }},
+        upsert=True
+    )
+
+    await ctx.send(narration)
+
 
 @bot.command(name="razas")
 async def listar_razas(ctx):
