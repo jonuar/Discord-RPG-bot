@@ -17,7 +17,7 @@ import logging
 import traceback
 import google.genai as genai
 from google.genai import types
-from datetime import datetime
+from datetime import datetime, UTC
 
 '''
 TO DO:
@@ -178,7 +178,7 @@ async def narrar(ctx, *, user_input: str = ""):
         narration = None
 
     if not narration or not narration.strip():
-        narration = "No pude narrar la escena. Intenta de nuevo."
+        narration = "La imaginación también necesita descansar. Intenta de nuevo más tarde."
 
     # Reemplaza nombres por menciones en la narración
     for name, mention in name_to_mention.items():
@@ -191,7 +191,7 @@ async def narrar(ctx, *, user_input: str = ""):
         "player_class": player_class,
         "user_input": user_input,
         "narration": narration,
-        "timestamp": datetime.utcnow()
+        "timestamp": datetime.now(UTC)
     })
 
     await ctx.send(narration)
