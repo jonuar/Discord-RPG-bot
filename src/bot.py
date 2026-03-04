@@ -102,8 +102,6 @@ async def info(ctx):
     )
     await ctx.send(mensaje)
 
-# Todo el contexto esta quedando en un solo documento, fix
-# Buscar modelo que se pueda usar sin gastarse tan rápido
 
 @bot.command(name="narrar")
 async def narrar(ctx, *, user_input: str = ""):
@@ -124,14 +122,14 @@ async def narrar(ctx, *, user_input: str = ""):
         context += f"{scene['player_name']}: {scene['user_input']}\nDM: {scene['narration']}\n"
 
     prompt = (
-        f"Eres un Dungeon Master con humor ácido. "
+        f"Eres un Dungeon Master con humor oscuro. "
         f"Estás narrando una partida de rol para {player_name}, su raza y clase son: {player_race} - {player_class}. "
         f"Responde con una narración breve (máximo 3 frases). "
         f"Si hay escenas anteriores, continúa la historia con ese contexto:\n{context}\n\n"
         f"{player_name}: {user_input}\nDM:"
     )
 
-    # Usa google.genai GenerativeModel directamente
+    # Usa google.genai GenerativeModel
     response = client.models.generate_content(
         model='gemini-2.5-flash',
         contents=prompt,
@@ -142,14 +140,50 @@ async def narrar(ctx, *, user_input: str = ""):
     )
     print(f"RESPONSE => {response.text}")
     print(response.candidates[0].finish_reason)
-    if hasattr(response, "text"):
-        narration = response.text
-    elif hasattr(response, "candidates") and response.candidates:
+
+    # if hasattr(response, "text"):
+    #     narration = response.text
+    # elif hasattr(response, "candidates") and response.candidates:
+    #     narration = response.candidates[0].content.parts[0].text
+    # else:
+    #     narration = "No pude narrar la escena. Intenta de nuevo."
+
+    # new_context = context + f"\n{player_name}: {user_input}\nDM: {narration}"
+    # await scenes_collection.insert_one({
+    #     "channel_id": channel_id,
+    #     "player_name": player_name,
+    #     "player_race": player_race,
+    #     "player_class": player_class,
+    #     "user_input": user_input,
+    #     "narration": narration,
+    #     "timestamp": datetime.utcnow()
+    # })
+
+    # await ctx.send(narration)
+
+    # Construye un diccionario de nombres a menciones
+    name_to_mention = {player_name: ctx.author.mention}
+    for scene in last_scenes:
+        name = scene.get("player_name")
+        if name and name not in name_to_mention:
+            member = discord.utils.get(ctx.guild.members, display_name=name)
+            if member:
+                name_to_mention[name] = member.mention
+
+    # Extrae el texto de la respuesta de forma segura
+    narration = None
+    try:
         narration = response.candidates[0].content.parts[0].text
-    else:
+    except (AttributeError, IndexError, KeyError, TypeError):
+        narration = None
+
+    if not narration or not narration.strip():
         narration = "No pude narrar la escena. Intenta de nuevo."
 
-    new_context = context + f"\n{player_name}: {user_input}\nDM: {narration}"
+    # Reemplaza nombres por menciones en la narración
+    for name, mention in name_to_mention.items():
+        narration = narration.replace(name, mention)
+
     await scenes_collection.insert_one({
         "channel_id": channel_id,
         "player_name": player_name,
