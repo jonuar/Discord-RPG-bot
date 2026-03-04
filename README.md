@@ -103,6 +103,9 @@ Sprites de personajes por raza utilizados para selección, previsualización y g
 - `!info`  
   Muestra la ayuda con todos los comandos, reglas y mecánicas especiales.
 
+- `!narrar <acción o mensaje>`  
+  El bot narrará la escena como un Dungeon Master usando IA, teniendo en cuenta al jugador, y continuará la historia según el contexto.
+
 ---
 
 ## Mecánicas y reglas

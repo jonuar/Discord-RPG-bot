@@ -17,6 +17,7 @@ import logging
 import traceback
 import google.genai as genai
 from google.genai import types
+from datetime import datetime
 
 '''
 TO DO:
@@ -86,6 +87,7 @@ async def info(ctx):
         "`!tienda` - Muestra los objetos que puedes comprar al mercader.\n"
         "`!comprar <número>` - Compra un objeto de la tienda para tu inventario.\n"
         "`!top` - Muestra el top 5 de los jugadores con más monedas.\n"
+        "`!narrar` - Escuchad al Dungeon Master, cuya palabra se hace realidad.\n"
         "\n"
         "**Reglas y mecánicas:**\n"
         f"- Cambiar de raza o clase cuesta {PRECIO_CAMBIO} monedas.\n"
@@ -100,6 +102,8 @@ async def info(ctx):
     )
     await ctx.send(mensaje)
 
+# Todo el contexto esta quedando en un solo documento, fix
+# Buscar modelo que se pueda usar sin gastarse tan rápido
 
 @bot.command(name="narrar")
 async def narrar(ctx, *, user_input: str = ""):
@@ -113,14 +117,18 @@ async def narrar(ctx, *, user_input: str = ""):
 
     # Recupera el contexto anterior de la colección 'scene_context'
     scenes_collection = database.client[Config.DB_NAME]["scene_context"]
-    scene_doc = await scenes_collection.find_one({"channel_id": channel_id})
-    context = scene_doc["context"] if scene_doc else ""
+    cursor = scenes_collection.find({"channel_id": channel_id}).sort("timestamp", -1).limit(2)
+    last_scenes = await cursor.to_list(length=2)
+    context = ""
+    for scene in reversed(last_scenes):  # Orden cronológico
+        context += f"{scene['player_name']}: {scene['user_input']}\nDM: {scene['narration']}\n"
 
-    # Prompt mejorado: corto, con raza y clase
     prompt = (
-        f"Estás narrando una partida épica de rol para {player_name}, un/a {player_race} {player_class}. "
-        f"Si hay escenas anteriores, continúa la historia con este contexto:\n{context}\n\n"
-        f"{player_name}: {user_input}\n"
+        f"Eres un Dungeon Master con humor ácido. "
+        f"Estás narrando una partida de rol para {player_name}, su raza y clase son: {player_race} - {player_class}. "
+        f"Responde con una narración breve (máximo 3 frases). "
+        f"Si hay escenas anteriores, continúa la historia con ese contexto:\n{context}\n\n"
+        f"{player_name}: {user_input}\nDM:"
     )
 
     # Usa google.genai GenerativeModel directamente
@@ -142,16 +150,15 @@ async def narrar(ctx, *, user_input: str = ""):
         narration = "No pude narrar la escena. Intenta de nuevo."
 
     new_context = context + f"\n{player_name}: {user_input}\nDM: {narration}"
-    await scenes_collection.update_one(
-        {"channel_id": channel_id},
-        {"$set": {
-                "context": new_context,
-                "player_name": player_name,
-                "player_race": player_race,
-                "player_class": player_class,
-            }},
-        upsert=True
-    )
+    await scenes_collection.insert_one({
+        "channel_id": channel_id,
+        "player_name": player_name,
+        "player_race": player_race,
+        "player_class": player_class,
+        "user_input": user_input,
+        "narration": narration,
+        "timestamp": datetime.utcnow()
+    })
 
     await ctx.send(narration)
 
