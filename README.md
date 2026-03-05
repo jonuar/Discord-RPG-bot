@@ -17,6 +17,10 @@ Sprites de personajes por raza utilizados para selección, previsualización y g
   <img src="assets/characters.jpg" alt="RPGbot character sprites" width="500">
 </p>
 
+<p align="center">
+  <img src="assets/chat.jpg" alt="RPGbot chat" width="500">
+</p>
+
 ---
 
 ## Requisitos
