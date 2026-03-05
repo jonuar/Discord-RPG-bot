@@ -1,4 +1,4 @@
-from assets_utils import (
+from utils.assets_utils import (
     combinar_tres_horizontal,
     obtener_imagen_raza,
     obtener_imagen_clase,
@@ -15,20 +15,16 @@ from dialogs import obtener_dialogo
 import re
 import logging
 import traceback
-import google.genai as genai
-from google.genai import types
+from utils.llm_provider import get_llm
 from datetime import datetime, UTC
 
 '''
 TO DO:
--Separate commands in files
--IA agent command (roast or narrar)
+-Separate commands in files: apirouter
 -Testing
 '''
 
 DISCORD_TOKEN = Config.DISCORD_TOKEN
-GEMINI_API_KEY = Config.GEMINI_API_KEY
-client = genai.Client(api_key=GEMINI_API_KEY)
 scene_context = {}
 
 intents = discord.Intents.default()
@@ -102,6 +98,7 @@ async def info(ctx):
     )
     await ctx.send(mensaje)
 
+# Hacerlo IA agnostico, usar Langchain
 
 @bot.command(name="narrar")
 async def narrar(ctx, *, user_input: str = ""):
@@ -129,37 +126,13 @@ async def narrar(ctx, *, user_input: str = ""):
         f"{player_name}: {user_input}\nDM:"
     )
 
-    # Usa google.genai GenerativeModel
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction='Eres un Dungeon Master con humor ácido. Responde con una narración breve (máximo 2 frases) usando el nombre, raza y clse del jugador.',
-            temperature=0.3,
-        ),
-    )
-    print(f"RESPONSE => {response.text}")
-    print(response.candidates[0].finish_reason)
-
-    # if hasattr(response, "text"):
-    #     narration = response.text
-    # elif hasattr(response, "candidates") and response.candidates:
-    #     narration = response.candidates[0].content.parts[0].text
-    # else:
-    #     narration = "No pude narrar la escena. Intenta de nuevo."
-
-    # new_context = context + f"\n{player_name}: {user_input}\nDM: {narration}"
-    # await scenes_collection.insert_one({
-    #     "channel_id": channel_id,
-    #     "player_name": player_name,
-    #     "player_race": player_race,
-    #     "player_class": player_class,
-    #     "user_input": user_input,
-    #     "narration": narration,
-    #     "timestamp": datetime.utcnow()
-    # })
-
-    # await ctx.send(narration)
+    # Llama al LLM agnóstico
+    llm = get_llm()
+    narration = llm.invoke(prompt)
+    if hasattr(narration, "content"):
+        narration = narration.content
+    narration = str(narration)
+    print("RESPONSE => {}".format(narration))
 
     # Construye un diccionario de nombres a menciones
     name_to_mention = {player_name: ctx.author.mention}
@@ -169,16 +142,6 @@ async def narrar(ctx, *, user_input: str = ""):
             member = discord.utils.get(ctx.guild.members, display_name=name)
             if member:
                 name_to_mention[name] = member.mention
-
-    # Extrae el texto de la respuesta de forma segura
-    narration = None
-    try:
-        narration = response.candidates[0].content.parts[0].text
-    except (AttributeError, IndexError, KeyError, TypeError):
-        narration = None
-
-    if not narration or not narration.strip():
-        narration = "La imaginación también necesita descansar. Intenta de nuevo más tarde."
 
     # Reemplaza nombres por menciones en la narración
     for name, mention in name_to_mention.items():
@@ -505,7 +468,7 @@ async def duelo(ctx, oponente: discord.Member):
                 await database.delete_user(oponente.id)
                 resultado += (
                     f"\n{oponente.mention}, tus arcas se vaciaron en un suspiro, y tu nombre fue borrado de los pergaminos del tiempo.\n"
-                    "Deberás crear un nuevo perfil con `!elegir <número de raza><letra de clase>`."
+                    "Deberá crear un nuevo perfil con `!elegir <número de raza><letra de clase>`."
         )
 
 
