@@ -102,63 +102,70 @@ async def info(ctx):
 
 @bot.command(name="narrar")
 async def narrar(ctx, *, user_input: str = ""):
-    channel_id = str(ctx.channel.id)
-    player_name = ctx.author.display_name
+    try:
+        channel_id = str(ctx.channel.id)
+        player_name = ctx.author.display_name
 
-    # Obtén la info del jugador desde la base de datos
-    user_doc = await database.read_user(ctx.author.id)
-    player_race = user_doc.get("race", {}).get("nombre", "aventurero") if user_doc else "aventurero"
-    player_class = user_doc.get("class", {}).get("nombre", "explorador") if user_doc else "explorador"
+        # Obtén la info del jugador desde la base de datos
+        user_doc = await database.read_user(ctx.author.id)
+        player_race = user_doc.get("race", {}).get("nombre", "aventurero") if user_doc else "aventurero"
+        player_class = user_doc.get("class", {}).get("nombre", "explorador") if user_doc else "explorador"
 
-    # Recupera el contexto anterior de la colección 'scene_context'
-    scenes_collection = database.client[Config.DB_NAME]["scene_context"]
-    cursor = scenes_collection.find({"channel_id": channel_id}).sort("timestamp", -1).limit(2)
-    last_scenes = await cursor.to_list(length=2)
-    context = ""
-    for scene in reversed(last_scenes):  # Orden cronológico
-        context += f"{scene['player_name']}: {scene['user_input']}\nDM: {scene['narration']}\n"
+        # Recupera el contexto anterior de la colección 'scene_context'
+        scenes_collection = database.client[Config.DB_NAME]["scene_context"]
+        cursor = scenes_collection.find({"channel_id": channel_id}).sort("timestamp", -1).limit(2)
+        last_scenes = await cursor.to_list(length=2)
+        context = ""
+        for scene in reversed(last_scenes):  # Orden cronológico
+            context += f"{scene['player_name']}: {scene['user_input']}\nDM: {scene['narration']}\n"
 
-    prompt = (
-        f"Eres un Dungeon Master con humor oscuro. "
-        f"Estás narrando una partida de rol para {player_name}, su raza y clase son: {player_race} - {player_class}. "
-        f"Responde con una narración breve (máximo 3 frases). "
-        f"Si hay escenas anteriores, continúa la historia con ese contexto:\n{context}\n\n"
-        f"{player_name}: {user_input}\nDM:"
-    )
+        prompt = (
+            f"Eres un Dungeon Master con humor oscuro. "
+            f"Estás narrando una partida de rol para {player_name}, su raza y clase son: {player_race} - {player_class}. "
+            f"Responde con una narración breve (máximo 3 frases). "
+            f"Si hay escenas anteriores, usa la información como recuerdos y prosigue con la aventura:\n{context}\n\n"
+            f"{player_name}: {user_input}\nDM:"
+        )
 
-    # Llama al LLM agnóstico
-    llm = get_llm()
-    narration = llm.invoke(prompt)
-    if hasattr(narration, "content"):
-        narration = narration.content
-    narration = str(narration)
-    print("RESPONSE => {}".format(narration))
+        # Llama al LLM agnóstico
+        try:
+            llm = get_llm()
+            narration = llm.invoke(prompt)
+            if hasattr(narration, "content"):
+                narration = narration.content
+            narration = str(narration)
+            logger.info(f"LLM response for {player_name}: {narration}")
+        except Exception as llm_error:
+            logger.error(f"Error al invocar el LLM: {llm_error}\n{traceback.format_exc()}")
+            narration = "El Dungeon Master está en silencio... (Error al contactar al oráculo)."
 
-    # Construye un diccionario de nombres a menciones
-    name_to_mention = {player_name: ctx.author.mention}
-    for scene in last_scenes:
-        name = scene.get("player_name")
-        if name and name not in name_to_mention:
-            member = discord.utils.get(ctx.guild.members, display_name=name)
-            if member:
-                name_to_mention[name] = member.mention
+        # Construye un diccionario de nombres a menciones
+        name_to_mention = {player_name: ctx.author.mention}
+        for scene in last_scenes:
+            name = scene.get("player_name")
+            if name and name not in name_to_mention:
+                member = discord.utils.get(ctx.guild.members, display_name=name)
+                if member:
+                    name_to_mention[name] = member.mention
 
-    # Reemplaza nombres por menciones en la narración
-    for name, mention in name_to_mention.items():
-        narration = narration.replace(name, mention)
+        # Reemplaza nombres por menciones en la narración
+        for name, mention in name_to_mention.items():
+            narration = narration.replace(name, mention)
 
-    await scenes_collection.insert_one({
-        "channel_id": channel_id,
-        "player_name": player_name,
-        "player_race": player_race,
-        "player_class": player_class,
-        "user_input": user_input,
-        "narration": narration,
-        "timestamp": datetime.now(UTC)
-    })
+        await scenes_collection.insert_one({
+            "channel_id": channel_id,
+            "player_name": player_name,
+            "player_race": player_race,
+            "player_class": player_class,
+            "user_input": user_input,
+            "narration": narration,
+            "timestamp": datetime.now(UTC)
+        })
 
-    await ctx.send(narration)
-
+        await ctx.send(narration)
+    except Exception as e:
+        logger.error(f"Error inesperado en !narrar: {e}\n{traceback.format_exc()}")
+        await ctx.send("Ocurrió un error inesperado al narrar la escena. Consulta al desarrollador.")
 
 @bot.command(name="razas")
 async def listar_razas(ctx):
@@ -206,7 +213,6 @@ async def elegir(ctx, opcion: str):
     except ValueError:
         await ctx.send("Tu elección de raza es tan absurda como un dragón vegetariano. Usa `!razas` para ver las opciones.")
         return
-
     letras = "ABCDEFGHIJ"
     if clase_letra not in letras:
         await ctx.send("¿Clase secreta? No existe. Usa `!clases` para ver las opciones.")
