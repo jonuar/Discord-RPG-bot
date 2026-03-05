@@ -122,8 +122,11 @@ async def narrar(ctx, *, user_input: str = ""):
         prompt = (
             f"Eres un Dungeon Master con humor oscuro. "
             f"Estás narrando una partida de rol para {player_name}, su raza y clase son: {player_race} - {player_class}. "
-            f"Responde con una narración breve (máximo 3 frases). "
-            f"Si hay escenas anteriores, usa la información como recuerdos y prosigue con la aventura:\n{context}\n\n"
+            f"El contexto de las últimas escenas es:\n{context}\n\n"
+            f"Usa este contexto para continuar la historia, mencionando a los personajes involucrados y sus acciones recientes. "
+            f"No repitas el contexto, sino que avanza la narración, introduce nuevas situaciones, peligros, oportunidades o giros inesperados. "
+            f"Puedes iniciar una nueva escena o proponer un punto de giro si la historia lo permite. "
+            f"Responde con una narración breve (máximo 3 frases) y siempre involucra activamente al jugador.\n\n"
             f"{player_name}: {user_input}\nDM:"
         )
 
