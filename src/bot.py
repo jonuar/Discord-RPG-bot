@@ -114,7 +114,7 @@ async def narrar(ctx, *, user_input: str = ""):
         # Recupera el contexto anterior de la colección 'scene_context'
         scenes_collection = database.client[Config.DB_NAME]["scene_context"]
         cursor = scenes_collection.find({"channel_id": channel_id}).sort("timestamp", -1).limit(2)
-        last_scenes = await cursor.to_list(length=2)
+        last_scenes = await cursor.to_list(length=1)
         context = ""
         for scene in reversed(last_scenes):  # Orden cronológico
             context += f"{scene['player_name']}: {scene['user_input']}\nDM: {scene['narration']}\n"
